@@ -4,7 +4,9 @@
 Vagrant.configure('2') do |config|
 
   config.vm.box = 'bento/ubuntu-22.04'
-  
+
+  config.vm.network :private_network, ip: '192.168.50.4'
+
   # mailhog
   config.vm.network 'forwarded_port', guest: 1025, host: 1025
   config.vm.network 'forwarded_port', guest: 8025, host: 8025
@@ -17,9 +19,17 @@ Vagrant.configure('2') do |config|
 
   # kafka
   config.vm.network 'forwarded_port', guest: 9094, host: 9094
+  config.vm.network 'forwarded_port', guest: 9094, host: 9092
+
+  # kafka schema registry
+  config.vm.network 'forwarded_port', guest: 9091, host: 9091
+  config.vm.network 'forwarded_port', guest: 909, host: 9090
 
   # mongo
   config.vm.network 'forwarded_port', guest: 27017, host: 27017
+
+  # EventStoreDB
+  config.vm.network 'forwarded_port', guest: 2113, host: 2113
 
   config.vm.provider 'virtualbox' do |vb|
      vb.memory = '3072'
@@ -32,6 +42,8 @@ Vagrant.configure('2') do |config|
     d.run 'redis', args: '-p 6379:6379'
     d.run 'cassandra', args: '-p 7000:7000'
     d.run 'mongo', args: '-p 27017:27017'
+    d.run 'bitnami/schema-registry:latest', args: '-d --name schema-registry -p 9091:9091 \
+          -e SCHEMA_REGISTRY_DEBUG=true'
   end
 
   # but kafka without zookeeper is a pain, and the docs suck and this will start kafka for us
@@ -45,7 +57,7 @@ Vagrant.configure('2') do |config|
         apt-get update
         apt-get install docker-compose-plugin docker-compose -y
         cd /vagrant
-        docker-compose up -d    
+        docker compose up -d    
       BASH
     }
   end
