@@ -22,14 +22,17 @@ Vagrant.configure('2') do |config|
   config.vm.network 'forwarded_port', guest: 9094, host: 9092
 
   # kafka schema registry
-  config.vm.network 'forwarded_port', guest: 9091, host: 9091
-  config.vm.network 'forwarded_port', guest: 909, host: 9090
+  config.vm.network 'forwarded_port', guest: 8081, host: 8081
+  config.vm.network 'forwarded_port', guest: 8082, host: 8082
 
   # mongo
   config.vm.network 'forwarded_port', guest: 27017, host: 27017
 
   # EventStoreDB
   config.vm.network 'forwarded_port', guest: 2113, host: 2113
+
+  # kafka UI
+  config.vm.network 'forwarded_port', guest: 8080, host:8888
 
   config.vm.provider 'virtualbox' do |vb|
      vb.memory = '3072'
@@ -42,23 +45,28 @@ Vagrant.configure('2') do |config|
     d.run 'redis', args: '-p 6379:6379'
     d.run 'cassandra', args: '-p 7000:7000'
     d.run 'mongo', args: '-p 27017:27017'
-    d.run 'bitnami/schema-registry:latest', args: '-d --name schema-registry -p 9091:9091 \
-          -e SCHEMA_REGISTRY_DEBUG=true'
   end
 
-  # but kafka without zookeeper is a pain, and the docs suck and this will start kafka for us
+  config.vm.provision :shell, inline: <<-BASH
+      apt-get update
+      apt-get install docker-compose-plugin docker-compose -y 
+    BASH
+
+  config.trigger.before [:halt, :reload] do |trigger|
+    trigger.run_remote = {inline: <<-BASH
+      cd /vagrant
+      docker compose down
+    BASH
+  }
+  end
+  # kafka without zookeeper is a pain, and the docs suck and this will start kafka for us
   # however the only examples are in a docker compose file, so instead of translating that to a docker file let's
   # just easymode it because i'm lazy
   config.trigger.after [:up, :reload] do |trigger|
-    # remove the pip update when the lib is fixed upstream
-    # easiest fix is to just downgrade the ubuntu version from 24.04 to 22.04
-    # https://stackoverflow.com/questions/64952238/docker-errors-dockerexception-error-while-fetching-server-api-version
-    trigger.run_remote = {inline: <<-BASH
-        apt-get update
-        apt-get install docker-compose-plugin docker-compose -y
-        cd /vagrant
-        docker compose up -d    
-      BASH
-    }
+   trigger.run_remote = {inline: <<-BASH 
+       cd /vagrant
+       docker compose up -d
+     BASH
+   }
   end
 end
